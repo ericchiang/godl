@@ -1,0 +1,210 @@
+package main
+
+import (
+	"errors"
+	"fmt"
+	"io"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/Masterminds/vcs"
+)
+
+var errNoManifest = errors.New("manifest file not found, run 'godl init' to create one")
+
+type downloader struct {
+	dir   string
+	cache cache
+}
+
+func newRepo(typ vcs.Type, remote, local string) (vcs.Repo, error) {
+	switch typ {
+	case vcs.Git:
+		return vcs.NewGitRepo(remote, local)
+	case vcs.Svn:
+		return vcs.NewSvnRepo(remote, local)
+	case vcs.Bzr:
+		return vcs.NewBzrRepo(remote, local)
+	case vcs.Hg:
+		return vcs.NewHgRepo(remote, local)
+	default:
+		return vcs.NewRepo(remote, local)
+	}
+}
+
+// vendor downloads a package to a project's "vendor" directory.
+//
+// Remote and version are both optional.
+func (d *downloader) vendor(pkgName, version, remote string) error {
+	m, ok, err := loadManifest(d.dir)
+	if err != nil {
+		return fmt.Errorf("loading manifest: %v", err)
+	}
+	if !ok {
+		return errNoManifest
+	}
+
+	// If a remote wasn't specified, but was previously, use that.
+	if remote == "" {
+		for _, pkg := range m.Import {
+			if pkg.Package == pkgName {
+				remote = pkg.Remote
+				break
+			}
+		}
+	}
+
+	checksum, err := d.vendorRepo(vcs.NoVCS, pkgName, version, remote)
+	if err != nil {
+		return err
+	}
+
+	return updateManifest(d.dir, func(m *manifest) error {
+		p := pkg{
+			Package:  pkgName,
+			Version:  version,
+			Remote:   remote,
+			Checksum: checksum,
+		}
+
+		for i, pkg := range m.Import {
+			if pkg.Package == pkgName {
+				m.Import[i] = p
+				return nil
+			}
+		}
+
+		m.Import = append(m.Import, p)
+		return nil
+	})
+}
+
+// vendorRepo is like vendor but allows specifying a VSC type. This is to allow
+// tests to reference local git repos.
+func (d *downloader) vendorRepo(typ vcs.Type, pkgName, version, remote string) (string, error) {
+	if u, err := url.Parse(pkgName); err == nil && u.Scheme != "" {
+		return "", fmt.Errorf("%q not allowed in import path", u.Scheme)
+	}
+
+	if remote == "" {
+		remote = "https://" + pkgName
+	}
+
+	dest := filepath.Join(d.dir, "vendor", filepath.FromSlash(pkgName))
+	err := d.cache.withLock(remote, func(path string) error {
+		repo, err := newRepo(typ, remote, path)
+		if err != nil {
+			return fmt.Errorf("setting up remote: %v", err)
+		}
+
+		if err := d.downloadRepo(repo, version); err != nil {
+			return fmt.Errorf("downloading repo: %v", err)
+		}
+
+		if err := os.RemoveAll(dest); err != nil {
+			return fmt.Errorf("clearing existing path in vendor directory: %v", err)
+		}
+
+		if err := os.MkdirAll(dest, 0755); err != nil {
+			return fmt.Errorf("creating target directory: %v", err)
+		}
+
+		if err := copyDir(dest, path); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+	return dirSum(dest)
+}
+
+// downloadRepo attempts to download a repo at a given version. The repo may already be
+// cloned, or not.
+func (d *downloader) downloadRepo(repo vcs.Repo, version string) error {
+	if !repo.CheckLocal() {
+		if err := repo.Get(); err != nil {
+			if e, ok := err.(*vcs.RemoteError); ok {
+				return fmt.Errorf("%s: %s %v", e.Error(), e.Out(), e.Original())
+			}
+			return fmt.Errorf("getting repo: %v", err)
+		}
+	}
+
+	if err := repo.UpdateVersion(version); err == nil {
+		return nil
+	}
+	if err := repo.Update(); err != nil {
+		return fmt.Errorf("updaing repo: %v", err)
+	}
+	if err := repo.UpdateVersion(version); err != nil {
+		return fmt.Errorf("failed to update to verison %s of repo: %v", version, err)
+	}
+	return nil
+}
+
+func goFile(basename string) bool {
+	return strings.HasSuffix(basename, ".go") && !strings.HasSuffix(basename, "_test.go")
+}
+
+func copyDir(dest, src string) error {
+	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil || src == path {
+			return err
+		}
+
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		name := filepath.Base(rel)
+
+		target := filepath.Join(dest, rel)
+
+		if info.IsDir() {
+			// Ignore hidden directories.
+			if strings.HasPrefix(name, ".") {
+				return filepath.SkipDir
+			}
+
+			// Ignore testdata and nested vendor directories.
+			switch name {
+			case "testdata", "vendor":
+				return filepath.SkipDir
+			}
+			return nil
+
+		}
+
+		// Ignore non-normal files (e.g. symlink).
+		if info.Mode()&os.ModeType != 0 {
+			return nil
+		}
+
+		if name != "LICENSE" && !goFile(name) {
+			return nil
+		}
+
+		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+			return err
+		}
+
+		destF, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, info.Mode())
+		if err != nil {
+			return err
+		}
+		defer destF.Close()
+
+		f, err := os.OpenFile(path, os.O_RDONLY, info.Mode())
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		_, err = io.Copy(destF, f)
+		return err
+	})
+}
