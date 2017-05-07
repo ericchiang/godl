@@ -25,6 +25,11 @@
       "package": "go4.org",
       "version": "16ace784e4b16df1d51c3435223b1d602cd43bfa",
       "checksum": "caf7a326a4884e2a0065692799df56e52a7b5e86ed6c7645aba5d838dc2216a2"
+    },
+    {
+      "package": "golang.org/x/sys",
+      "version": "9ccfe848b9db8435a24c424abbc07a921adf1df5",
+      "checksum": "8065db8da1048c4fc78051e9e2883c8d66ad8f60f7e0abf9ee57902b1b0536ad"
     }
   ]
 }
