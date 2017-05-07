@@ -9,3 +9,7 @@ test:
 	@go test --race -v
 	@golint .
 	@go vet .
+
+.PHONY: verify-vendor
+verify-vendor: build
+	@./bin/godl verify
