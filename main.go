@@ -125,13 +125,18 @@ func cmdGet(tool *tool) *cobra.Command {
 		Use:   "get",
 		Short: "Get or update a dependency at a specific version.",
 		Run: func(cmd *cobra.Command, args []string) {
-			if len(args) != 2 {
+			var pkgPath, version string
+			switch len(args) {
+			case 1:
+				pkgPath = args[0]
+			case 2:
+				pkgPath = args[0]
+				version = args[1]
+			default:
 				cmd.Usage()
 				os.Exit(1)
-
 			}
-			pkgPath := args[0]
-			version := args[1]
+
 			dl, err := tool.downloader()
 			if err != nil {
 				fatalf("%v\n", err)
