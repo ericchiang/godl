@@ -1,0 +1,15 @@
+language: go
+
+go:
+  - 1.8.1
+
+install:
+  - go get -u github.com/golang/lint/golint
+
+script:
+  - make build
+  - make test
+  - make verify-vendor
+
+notifications:
+  email: false
