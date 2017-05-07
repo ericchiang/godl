@@ -146,8 +146,32 @@ func (d *downloader) downloadRepo(repo vcs.Repo, version string) error {
 	return nil
 }
 
-func goFile(basename string) bool {
-	return strings.HasSuffix(basename, ".go") && !strings.HasSuffix(basename, "_test.go")
+func ignore(info os.FileInfo) bool {
+	if info.IsDir() {
+		switch info.Name() {
+		case "testdata", "vendor":
+			return true
+		}
+		return strings.HasPrefix(info.Name(), ".")
+	}
+
+	// Ignore non-normal files (e.g. symlink).
+	if info.Mode()&os.ModeType != 0 {
+		return true
+	}
+
+	switch filepath.Ext(info.Name()) {
+	case ".go":
+		// Ignore test files.
+		if strings.HasSuffix(info.Name(), "_test.go") {
+			return true
+		}
+	case ".s", ".c":
+		// Retain assembly and C files.
+	default:
+		return info.Name() != "LICENSE"
+	}
+	return false
 }
 
 func copyDir(dest, src string) error {
@@ -156,38 +180,19 @@ func copyDir(dest, src string) error {
 			return err
 		}
 
+		if ignore(info) {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
 		rel, err := filepath.Rel(src, path)
 		if err != nil {
 			return err
 		}
-		name := filepath.Base(rel)
 
 		target := filepath.Join(dest, rel)
-
-		if info.IsDir() {
-			// Ignore hidden directories.
-			if strings.HasPrefix(name, ".") {
-				return filepath.SkipDir
-			}
-
-			// Ignore testdata and nested vendor directories.
-			switch name {
-			case "testdata", "vendor":
-				return filepath.SkipDir
-			}
-			return nil
-
-		}
-
-		// Ignore non-normal files (e.g. symlink).
-		if info.Mode()&os.ModeType != 0 {
-			return nil
-		}
-
-		if name != "LICENSE" && !goFile(name) {
-			return nil
-		}
-
 		if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
 			return err
 		}
