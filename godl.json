@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "import": [
+    {
+      "package": "github.com/Masterminds/vcs",
+      "version": "v1.11.1",
+      "checksum": "8cd5e17808019a7d34a863b5bb4c16bc072b33056d5a21966e5e6eff914c190f"
+    },
+    {
+      "package": "github.com/mitchellh/go-homedir",
+      "version": "b8bc1bf767474819792c23f32d8286a45736f1c6",
+      "checksum": "75468c178eb9970194594d6beb9ac341b587d2e3f2b2904528528c7d2e5dcea9"
+    },
+    {
+      "package": "github.com/spf13/cobra",
+      "version": "d83a1d7ccd00a9e1b5d234653837b498b9b27abd",
+      "checksum": "824d6bad3b7a13b77a546fa1bb9ed74996d3c7e6bb4864af1ffd484a65a8560a"
+    },
+    {
+      "package": "github.com/spf13/pflag",
+      "version": "80fe0fb4eba54167e2ccae1c6c950e72abf61b73",
+      "checksum": "4939f0d2ff0e1dffa3ed1c7c6c6addb6fd872ca83302ac32b187f8c0962db944"
+    },
+    {
+      "package": "go4.org",
+      "version": "16ace784e4b16df1d51c3435223b1d602cd43bfa",
+      "checksum": "caf7a326a4884e2a0065692799df56e52a7b5e86ed6c7645aba5d838dc2216a2"
+    }
+  ]
+}
