@@ -56,7 +56,7 @@ func (d *downloader) vendor(pkgName, version, remote string) error {
 		}
 	}
 
-	checksum, err := d.vendorRepo(vcs.NoVCS, pkgName, version, remote)
+	checksum, v, err := d.vendorRepo(vcs.NoVCS, pkgName, version, remote)
 	if err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func (d *downloader) vendor(pkgName, version, remote string) error {
 	return updateManifest(d.dir, func(m *manifest) error {
 		p := pkg{
 			Package:  pkgName,
-			Version:  version,
+			Version:  v,
 			Remote:   remote,
 			Checksum: checksum,
 		}
@@ -83,9 +83,9 @@ func (d *downloader) vendor(pkgName, version, remote string) error {
 
 // vendorRepo is like vendor but allows specifying a VSC type. This is to allow
 // tests to reference local git repos.
-func (d *downloader) vendorRepo(typ vcs.Type, pkgName, version, remote string) (string, error) {
+func (d *downloader) vendorRepo(typ vcs.Type, pkgName, version, remote string) (checksum, gotVersion string, err error) {
 	if u, err := url.Parse(pkgName); err == nil && u.Scheme != "" {
-		return "", fmt.Errorf("%q not allowed in import path", u.Scheme)
+		return "", "", fmt.Errorf("%q not allowed in import path", u.Scheme)
 	}
 
 	if remote == "" {
@@ -93,13 +93,14 @@ func (d *downloader) vendorRepo(typ vcs.Type, pkgName, version, remote string) (
 	}
 
 	dest := filepath.Join(d.dir, "vendor", filepath.FromSlash(pkgName))
-	err := d.cache.withLock(remote, func(path string) error {
+	err = d.cache.withLock(remote, func(path string) error {
 		repo, err := newRepo(typ, remote, path)
 		if err != nil {
 			return fmt.Errorf("setting up remote: %v", err)
 		}
 
-		if err := d.downloadRepo(repo, version); err != nil {
+		gotVersion, err = d.downloadRepo(repo, version)
+		if err != nil {
 			return fmt.Errorf("downloading repo: %v", err)
 		}
 
@@ -117,33 +118,40 @@ func (d *downloader) vendorRepo(typ vcs.Type, pkgName, version, remote string) (
 		return nil
 	})
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
-	return dirSum(dest)
+	checksum, err = dirSum(dest)
+	return
 }
 
 // downloadRepo attempts to download a repo at a given version. The repo may already be
 // cloned, or not.
-func (d *downloader) downloadRepo(repo vcs.Repo, version string) error {
+func (d *downloader) downloadRepo(repo vcs.Repo, version string) (string, error) {
 	if !repo.CheckLocal() {
 		if err := repo.Get(); err != nil {
 			if e, ok := err.(*vcs.RemoteError); ok {
-				return fmt.Errorf("%s: %s %v", e.Error(), e.Out(), e.Original())
+				return "", fmt.Errorf("%s: %s %v", e.Error(), e.Out(), e.Original())
 			}
-			return fmt.Errorf("getting repo: %v", err)
+			return "", fmt.Errorf("getting repo: %v", err)
 		}
 	}
 
-	if err := repo.UpdateVersion(version); err == nil {
-		return nil
+	if version != "" {
+		if err := repo.UpdateVersion(version); err == nil {
+			return version, nil
+		}
 	}
 	if err := repo.Update(); err != nil {
-		return fmt.Errorf("updaing repo: %v", err)
+		return "", fmt.Errorf("updaing repo: %v", err)
+	}
+
+	if version == "" {
+		return repo.Version()
 	}
 	if err := repo.UpdateVersion(version); err != nil {
-		return fmt.Errorf("failed to update to verison %s of repo: %v", version, err)
+		return "", fmt.Errorf("failed to update to verison %s of repo: %v", version, err)
 	}
-	return nil
+	return version, nil
 }
 
 func ignore(info os.FileInfo) bool {
@@ -184,6 +192,9 @@ func copyDir(dest, src string) error {
 			if info.IsDir() {
 				return filepath.SkipDir
 			}
+			return nil
+		}
+		if info.IsDir() {
 			return nil
 		}
 
