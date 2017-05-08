@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	manifestFile = "godl.json"
+	manifestFile = ".godl.json"
 
 	currentVersion = 2
 )
