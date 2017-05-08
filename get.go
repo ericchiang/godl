@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/Masterminds/vcs"
+	"github.com/ericchiang/godl/internal/forked/glideutil"
 )
 
 var errNoManifest = errors.New("manifest file not found, run 'godl init' to create one")
@@ -34,16 +35,24 @@ func newRepo(typ vcs.Type, remote, local string) (vcs.Repo, error) {
 	}
 }
 
-// vendor downloads a package to a project's "vendor" directory.
+// get downloads a package to a project's "vendor" directory.
 //
 // Remote and version are both optional.
-func (d *downloader) vendor(pkgName, version, remote string) error {
+func (d *downloader) get(pkgName, version, remote string) error {
 	m, ok, err := loadManifest(d.dir)
 	if err != nil {
 		return fmt.Errorf("loading manifest: %v", err)
 	}
 	if !ok {
 		return errNoManifest
+	}
+
+	rootPkg, err := glideutil.GetRootFromPackage(pkgName)
+	if err != nil {
+		return fmt.Errorf("failed to determine root package: %v", err)
+	}
+	if rootPkg != pkgName {
+		return fmt.Errorf("package %q is not the root package import, try downloading %q instead", pkgName, rootPkg)
 	}
 
 	// If a remote wasn't specified, but was previously, use that.
