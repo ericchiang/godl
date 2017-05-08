@@ -156,7 +156,7 @@ func (d *downloader) downloadRepo(repo vcs.Repo, version string) (string, error)
 		return repo.Version()
 	}
 	if err := repo.UpdateVersion(version); err != nil {
-		return "", fmt.Errorf("failed to update to verison %s of repo: %v", version, err)
+		return "", fmt.Errorf("failed to update to version %s of repo: %v", version, err)
 	}
 	return version, nil
 }
