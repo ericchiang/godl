@@ -31,7 +31,8 @@ type pkg struct {
 }
 
 func loadManifest(path string) (*manifest, bool, error) {
-	return load(filepath.Join(path, manifestFile))
+	p := filepath.Join(path, manifestFile)
+	return load(p)
 }
 
 func initManifest(path string) error {
