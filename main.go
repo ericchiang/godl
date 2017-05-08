@@ -152,7 +152,7 @@ func cmdGet(tool *tool) *cobra.Command {
 			if err != nil {
 				fatalf("%v\n", err)
 			}
-			if err := dl.vendor(pkgPath, version, remote); err != nil {
+			if err := dl.get(pkgPath, version, remote); err != nil {
 				fatalf("%v\n", err)
 			}
 		},
