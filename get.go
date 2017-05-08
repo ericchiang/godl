@@ -47,21 +47,25 @@ func (d *downloader) get(pkgName, version, remote string) error {
 		return errNoManifest
 	}
 
-	rootPkg, err := glideutil.GetRootFromPackage(pkgName)
-	if err != nil {
-		return fmt.Errorf("failed to determine root package: %v", err)
-	}
-	if rootPkg != pkgName {
-		return fmt.Errorf("package %q is not the root package import, try downloading %q instead", pkgName, rootPkg)
+	found := false
+	for _, pkg := range m.Import {
+		if pkg.Package == pkgName {
+			// If a remote wasn't specified, but was previously, use that.
+			if remote == "" {
+				remote = pkg.Remote
+			}
+			found = true
+			break
+		}
 	}
 
-	// If a remote wasn't specified, but was previously, use that.
-	if remote == "" {
-		for _, pkg := range m.Import {
-			if pkg.Package == pkgName {
-				remote = pkg.Remote
-				break
-			}
+	if !found && remote != "" {
+		rootPkg, err := glideutil.GetRootFromPackage(pkgName)
+		if err != nil {
+			return fmt.Errorf("failed to determine root package: %v", err)
+		}
+		if rootPkg != pkgName {
+			return fmt.Errorf("package %q is not the root package import, try downloading %q instead", pkgName, rootPkg)
 		}
 	}
 
