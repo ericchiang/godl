@@ -42,7 +42,7 @@ func (t *tool) downloader() (*downloader, error) {
 	}
 	home, err := homedir.Dir()
 	if err != nil {
-		return nil, fmt.Errorf("could not find home directory: %v\n", err)
+		return nil, fmt.Errorf("could not find home directory: %v", err)
 	}
 	c := cacheDir{dir: filepath.Join(home, ".godl")}
 	return &downloader{dir, c}, nil
@@ -159,7 +159,7 @@ func cmdGet(tool *tool) *cobra.Command {
 	}
 
 	c.Flags().StringVar(&remote, "remote", "",
-		"Remote address fo the repo to download. Can be used to override discoved address.")
+		"Remote address fo the repo to download. Can be used to override discovered address.")
 	return c
 }
 

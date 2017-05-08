@@ -8,7 +8,7 @@ Unlike other tools, godl doesn't do analysis of dependencies, inspect source fil
 godl init
 godl get golang.org/x/net feeb485667d1fdabe727840fe00adc22431bc86e
 godl get gopkg.in/square/go-jose.v2 v2.1.0
-godl get github.com/spf13/cobra # Default's to latest
+godl get github.com/spf13/cobra # Defaults to latest
 ```
 
 ## FAQ
