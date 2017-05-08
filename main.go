@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"unicode"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
@@ -12,6 +14,15 @@ import (
 func fatalf(format string, v ...interface{}) {
 	fmt.Fprintf(os.Stderr, format, v...)
 	os.Exit(1)
+}
+
+func indent(indent, s string) string {
+	s = strings.TrimSpace(s)
+	split := strings.Split(s, "\n")
+	for i, line := range split {
+		split[i] = indent + strings.TrimLeftFunc(line, unicode.IsSpace)
+	}
+	return strings.Join(split, "\n")
 }
 
 type tool struct {
@@ -51,28 +62,42 @@ func (t *tool) projectDir() (string, error) {
 func main() {
 	t := new(tool)
 	c := &cobra.Command{
-		Use: "godl",
+		Use:   "godl [sub-command]",
+		Short: "A Go vendoring tool that allows incremental changes to dependencies.",
+		Long: indent("", `
+			godl is a vendoring tool that lets users download dependencies one at a
+			time. Unlike other tools, it does no inspection of source files in a
+			project, reducing the overhead of expensive operations and corner cases.
+		`),
+		Example: indent("  ", `
+			godl init
+			godl get github.com/spf13/cobra d83a1d7ccd00a9e1b5d234653837b498b9b27abd
+			godl get gopkg.in/square/go-jose.v2 v2.1.1
+			godl get github.com/spf13/pflag
+		`),
 	}
 	c.AddCommand(cmdInit(t))
 	c.AddCommand(cmdGet(t))
 	c.AddCommand(cmdVerify(t))
 	c.AddCommand(cmdRm(t))
 
-	c.Flags().BoolVar(&t.disableCache, "disable-cache", false,
+	c.PersistentFlags().BoolVar(&t.disableCache, "disable-cache", false,
 		"Disable download cache.")
-	c.Flags().StringVar(&t.dir, "dir", "",
+	c.PersistentFlags().StringVar(&t.dir, "dir", "",
 		"Directory to operate in. Defaults to the current directory.")
 
 	if err := c.Execute(); err != nil {
 		os.Exit(1)
 	}
-
 }
 
 func cmdVerify(tool *tool) *cobra.Command {
 	c := &cobra.Command{
 		Use:   "verify",
-		Short: "Verify compares the expected and actual state of the vendor directory.",
+		Short: "Verify that godl was used to create the vendor directory",
+		Long: indent("", `
+			Best effort verification that godl was used to create the vendor directory.
+		`),
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) != 0 {
 				cmd.Usage()
@@ -101,7 +126,11 @@ func cmdVerify(tool *tool) *cobra.Command {
 func cmdInit(tool *tool) *cobra.Command {
 	c := &cobra.Command{
 		Use:   "init",
-		Short: "Initializes a manifest file to track dependencies in.",
+		Short: "Initialize a manifest file",
+		Long: indent("", `
+			Initialize a manifest file. To ensure godl is being used in the correct
+			directory, it will not automatically create a manifest file.
+		`),
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) != 0 {
 				cmd.Usage()
@@ -123,8 +152,22 @@ func cmdInit(tool *tool) *cobra.Command {
 func cmdGet(tool *tool) *cobra.Command {
 	var remote string
 	c := &cobra.Command{
-		Use:   "get",
-		Short: "Get or update a dependency at a specific version.",
+		Use:   "get <package> [version]",
+		Short: "Get, update or downgrade a dependency",
+		Long: indent("", `
+			Get, update, or downgrade a dependency.
+
+			If version isn't specified, the latest of the default branch will
+			be detected.
+
+			The package MUST be the root of the repo. For example "golang.org/x/net"
+			will work but "golang.org/x/net/context" won't.
+		`),
+		Example: indent("  ", `
+			godl get golang.org/x/net feeb485667d1fdabe727840fe00adc22431bc86e
+			godl get gopkg.in/square/go-jose.v2 v2.1.0
+			godl get github.com/spf13/cobra # Default's to latest
+		`),
 		Run: func(cmd *cobra.Command, args []string) {
 			var pkgPath, version string
 			switch len(args) {
@@ -155,8 +198,15 @@ func cmdGet(tool *tool) *cobra.Command {
 
 func cmdRm(tool *tool) *cobra.Command {
 	c := &cobra.Command{
-		Use:   "rm",
-		Short: "Remove a package from your vendor directory.",
+		Use:   "rm <package>",
+		Short: "Remove a vendored package",
+		Long: indent("", `
+			Remove a package from the vendor directory.
+		`),
+		Example: indent("  ", `
+			godl rm golang.org/x/net
+			godl rm github.com/spf13/cobra
+		`),
 		Run: func(cmd *cobra.Command, args []string) {
 			if len(args) != 1 {
 				cmd.Usage()
