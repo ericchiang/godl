@@ -175,7 +175,7 @@ func ignore(info os.FileInfo) bool {
 	case ".s", ".c":
 		// Retain assembly and C files.
 	default:
-		return info.Name() != "LICENSE"
+		return info.Name() != "LICENSE" && info.Name() != "LICENSE.txt"
 	}
 	return false
 }
