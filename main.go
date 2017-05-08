@@ -56,6 +56,7 @@ func main() {
 	c.AddCommand(cmdInit(t))
 	c.AddCommand(cmdGet(t))
 	c.AddCommand(cmdVerify(t))
+	c.AddCommand(cmdRm(t))
 
 	c.Flags().BoolVar(&t.disableCache, "disable-cache", false,
 		"Disable download cache.")
@@ -144,5 +145,29 @@ func cmdGet(tool *tool) *cobra.Command {
 
 	c.Flags().StringVar(&remote, "remote", "",
 		"Remote address fo the repo to download. Can be used to override discoved address.")
+	return c
+}
+
+func cmdRm(tool *tool) *cobra.Command {
+	c := &cobra.Command{
+		Use:   "rm",
+		Short: "Remove a package from your vendor directory.",
+		Run: func(cmd *cobra.Command, args []string) {
+			if len(args) != 1 {
+				cmd.Usage()
+				os.Exit(1)
+			}
+			pkgName := args[0]
+
+			dir, err := tool.projectDir()
+			if err != nil {
+				fatalf("%v\n", err)
+			}
+
+			if err := remove(dir, pkgName); err != nil {
+				fatalf("%v\n", err)
+			}
+		},
+	}
 	return c
 }
