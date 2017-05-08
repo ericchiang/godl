@@ -78,7 +78,6 @@ func main() {
 	}
 	c.AddCommand(cmdInit(t))
 	c.AddCommand(cmdGet(t))
-	c.AddCommand(cmdVerify(t))
 	c.AddCommand(cmdRm(t))
 
 	c.PersistentFlags().BoolVar(&t.disableCache, "disable-cache", false,
@@ -89,38 +88,6 @@ func main() {
 	if err := c.Execute(); err != nil {
 		os.Exit(1)
 	}
-}
-
-func cmdVerify(tool *tool) *cobra.Command {
-	c := &cobra.Command{
-		Use:   "verify",
-		Short: "Verify that godl was used to create the vendor directory",
-		Long: indent("", `
-			Best effort verification that godl was used to create the vendor directory.
-		`),
-		Run: func(cmd *cobra.Command, args []string) {
-			if len(args) != 0 {
-				cmd.Usage()
-				os.Exit(1)
-			}
-			dir, err := tool.projectDir()
-			if err != nil {
-				fatalf("%v\n", err)
-			}
-			bad, err := verify(dir)
-			if err != nil {
-				fatalf("%v\n", err)
-			}
-			if len(bad) == 0 {
-				return
-			}
-			for _, s := range bad {
-				fmt.Fprintf(os.Stderr, "failed to verify package: %s\n", s)
-			}
-			os.Exit(1)
-		},
-	}
-	return c
 }
 
 func cmdInit(tool *tool) *cobra.Command {

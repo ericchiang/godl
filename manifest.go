@@ -12,7 +12,7 @@ import (
 const (
 	manifestFile = "godl.json"
 
-	currentVersion = 1
+	currentVersion = 2
 )
 
 type manifest struct {
@@ -24,10 +24,6 @@ type pkg struct {
 	Package string `json:"package"`
 	Version string `json:"version"`
 	Remote  string `json:"remote,omitempty"`
-
-	// Computed checksum of the on disk files. This allows loose detection
-	// of directories in "vendor" that haven't been put there by this tool.
-	Checksum string `json:"checksum,omitempty"`
 }
 
 func loadManifest(path string) (*manifest, bool, error) {
@@ -40,7 +36,7 @@ func initManifest(path string) error {
 	if _, err := os.Stat(p); err == nil {
 		return fmt.Errorf("manifest file already exists")
 	}
-	return write(p, &manifest{Version: currentVersion})
+	return write(p, &manifest{})
 }
 
 func updateManifest(path string, f func(m *manifest) error) error {
@@ -79,6 +75,7 @@ func load(path string) (*manifest, bool, error) {
 }
 
 func write(path string, m *manifest) error {
+	m.Version = currentVersion
 	sort.Slice(m.Import, func(i, j int) bool {
 		return m.Import[i].Package < m.Import[j].Package
 	})

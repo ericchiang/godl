@@ -11,13 +11,6 @@ godl get gopkg.in/square/go-jose.v2 v2.1.0
 godl get github.com/spf13/cobra # Default's to latest
 ```
 
-godl can also verify that it was the tool used to create the vendor directory. This allows project owners to ensure contributors took the correct steps when adding or updating dependencies.
-
-```terminal
-$ godl verify
-failed to verify package: golang.org/x/oauth2
-```
-
 ## FAQ
 
 Q: Since godl won't do it for me, how do I list all my projects dependencies?

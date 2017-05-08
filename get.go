@@ -56,17 +56,16 @@ func (d *downloader) vendor(pkgName, version, remote string) error {
 		}
 	}
 
-	checksum, v, err := d.vendorRepo(vcs.NoVCS, pkgName, version, remote)
+	v, err := d.vendorRepo(vcs.NoVCS, pkgName, version, remote)
 	if err != nil {
 		return err
 	}
 
 	return updateManifest(d.dir, func(m *manifest) error {
 		p := pkg{
-			Package:  pkgName,
-			Version:  v,
-			Remote:   remote,
-			Checksum: checksum,
+			Package: pkgName,
+			Version: v,
+			Remote:  remote,
 		}
 
 		for i, pkg := range m.Import {
@@ -83,9 +82,9 @@ func (d *downloader) vendor(pkgName, version, remote string) error {
 
 // vendorRepo is like vendor but allows specifying a VSC type. This is to allow
 // tests to reference local git repos.
-func (d *downloader) vendorRepo(typ vcs.Type, pkgName, version, remote string) (checksum, gotVersion string, err error) {
+func (d *downloader) vendorRepo(typ vcs.Type, pkgName, version, remote string) (gotVersion string, err error) {
 	if u, err := url.Parse(pkgName); err == nil && u.Scheme != "" {
-		return "", "", fmt.Errorf("%q not allowed in import path", u.Scheme)
+		return "", fmt.Errorf("%q not allowed in import path", u.Scheme)
 	}
 
 	if remote == "" {
@@ -118,9 +117,8 @@ func (d *downloader) vendorRepo(typ vcs.Type, pkgName, version, remote string) (
 		return nil
 	})
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
-	checksum, err = dirSum(dest)
 	return
 }
 
