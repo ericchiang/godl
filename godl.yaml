@@ -1,0 +1,27 @@
+import:
+- package: go4.org
+  version: 16ace784e4b16df1d51c3435223b1d602cd43bfa
+  subpackages:
+  - lock
+
+- package: github.com/Masterminds/vcs
+  version: v1.11.1
+
+- package: github.com/mitchellh/go-homedir
+  version: b8bc1bf767474819792c23f32d8286a45736f1c6 
+
+# Cobra and related tools
+- package: github.com/spf13/cobra
+  version: 1362f95a8d6fe330d00a64380d6e0b65f4992c72 
+- package: github.com/spf13/pflag
+  version: e57e3eeb33f795204c1ca35f56c44f83227c6e66
+
+- package: github.com/ghodss/yaml
+  version: v1.0.0
+- package: gopkg.in/yaml.v2
+  version: cd8b52f8269e0feb286dfeef29f8fe4d5b397e0b
+
+- package: golang.org/x/sys
+  version: 9ccfe848b9db8435a24c424abbc07a921adf1df5
+  subpackages:
+  - unix
