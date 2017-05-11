@@ -11,6 +11,14 @@ import (
 	"strings"
 )
 
+func isGoFile(name string) bool {
+	return filepath.Ext(name) == ".go" && !strings.HasSuffix(name, "_test.go")
+}
+
+func isLicense(name string) bool {
+	return name == "LICENSE" || name == "LICENSE.txt"
+}
+
 func ignore(info os.FileInfo) bool {
 	if info.IsDir() {
 		switch info.Name() {
@@ -25,18 +33,19 @@ func ignore(info os.FileInfo) bool {
 		return true
 	}
 
+	if isGoFile(info.Name()) {
+		return false
+	}
+	if isLicense(info.Name()) {
+		return false
+	}
+
 	switch filepath.Ext(info.Name()) {
-	case ".go":
-		// Ignore test files.
-		if strings.HasSuffix(info.Name(), "_test.go") {
-			return true
-		}
 	case ".s", ".c":
 		// Retain assembly and C files.
-	default:
-		return info.Name() != "LICENSE" && info.Name() != "LICENSE.txt"
+		return false
 	}
-	return false
+	return true
 }
 
 func copyFile(dest, src string, info os.FileInfo) error {
@@ -88,17 +97,20 @@ func copyDir(dest, src string) error {
 // copySubpackages recursively follows subpackage imports as long as
 // the import is within the package.
 func copySubpackages(dest, pkgRoot string, p ManifestPackage) ([]string, error) {
-	visited := make(map[string]bool)
-	var seen []string
+	// List of directories already visited. These are always in filepath format.
+	visitedDirs := make(map[string]bool)
+
+	// List of subpackages seen. These are always in path format.
+	var seenImports []string
 
 	var visit func(string) error
 	visit = func(rel string) error {
-		if visited[rel] {
+		if visitedDirs[rel] {
 			return nil
 		}
-		seen = append(seen, filepath.ToSlash(rel))
+		seenImports = append(seenImports, filepath.ToSlash(rel))
 
-		visited[rel] = true
+		visitedDirs[rel] = true
 
 		infos, err := ioutil.ReadDir(filepath.Join(pkgRoot, rel))
 		if err != nil {
@@ -118,7 +130,7 @@ func copySubpackages(dest, pkgRoot string, p ManifestPackage) ([]string, error) 
 
 			// If the file is a Go file, analyize its imports and
 			// try to follow them.
-			if filepath.Ext(name) == ".go" {
+			if isGoFile(name) {
 				imports, err := listImports(from)
 				if err != nil {
 					return err
@@ -151,7 +163,41 @@ func copySubpackages(dest, pkgRoot string, p ManifestPackage) ([]string, error) 
 			return nil, err
 		}
 	}
-	return seen, nil
+
+	// Find any license files in subdirectories of copied directories.
+	for pkg := range visitedDirs {
+		dir := pkg
+		for {
+			dir = filepath.Dir(dir)
+			if visitedDirs[dir] {
+				break
+			}
+			visitedDirs[dir] = true
+
+			infos, err := ioutil.ReadDir(dir)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, info := range infos {
+				name := info.Name()
+				if isLicense(name) {
+					destPath := filepath.Join(dest, dir, name)
+					srcPath := filepath.Join(pkgRoot, dir, name)
+					if err := copyFile(destPath, srcPath, info); err != nil {
+						return nil, err
+					}
+				}
+			}
+
+			// At the package root. We can break now.
+			if dir == "." || dir == "" {
+				break
+			}
+		}
+	}
+
+	return seenImports, nil
 }
 
 // listImports parses a .go file and returns its imports.
