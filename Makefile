@@ -5,11 +5,7 @@ build:
 
 .PHONY: test
 test:
-	@go test --race -v -i
-	@go test --race -v
-	@golint .
-	@go vet .
-
-.PHONY: spell-check
-spell-check:
-	@misspell --error *.go *.md
+	@go test --race -v -i ./internal/...
+	@go test --race -v ./internal/...
+	@go vet ./internal/...
+	@golint ./internal/...

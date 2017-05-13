@@ -77,10 +77,13 @@ func (p *Project) packagePath(importPath string) string {
 	return filepath.Join(p.Dir, "vendor", filepath.FromSlash(importPath))
 }
 
+// Remove deletes a package from the vendor directory of a project.
 func (p *Project) Remove(importPath string) error {
 	return os.RemoveAll(p.packagePath(importPath))
 }
 
+// Download downloads a package to the vendor directory of a project.
+// It does not modify the lock files.
 func (p *Project) Download(pkg ManifestPackage) (LockPackage, error) {
 	l := LockPackage{Package: pkg.Package}
 	if u, err := url.Parse(pkg.Package); err == nil && u.Scheme != "" {
@@ -121,11 +124,14 @@ func (p *Project) Download(pkg ManifestPackage) (LockPackage, error) {
 		}
 
 		if len(pkg.Subpackages) == 0 {
-			return copyDir(dest, cachePath)
+			if err := copyDir(dest, cachePath); err != nil {
+				return fmt.Errorf("copying files: %v", err)
+			}
+			return nil
 		}
 		subPkgs, err := copySubpackages(dest, cachePath, pkg)
 		if err != nil {
-			return err
+			return fmt.Errorf("copying files: %v", err)
 		}
 		l.Subpackages = subPkgs
 		return nil
@@ -143,7 +149,6 @@ func downloadRepo(repo vcs.Repo, version string) (string, error) {
 			if e, ok := err.(*vcs.RemoteError); ok {
 				return "", fmt.Errorf("%s: %s %v", e.Error(), e.Out(), e.Original())
 			}
-			return "", fmt.Errorf("getting repo: %v", err)
 		}
 	}
 

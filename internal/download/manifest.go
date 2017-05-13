@@ -1,6 +1,7 @@
 package download
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -19,6 +20,7 @@ type Manifest struct {
 	Import []ManifestPackage `json:"import,omitempty"`
 }
 
+// ManifestPackage is the manifest file serialization of a package.
 type ManifestPackage struct {
 	Package     string   `json:"package"`
 	Version     string   `json:"version"`
@@ -47,11 +49,23 @@ type Project struct {
 	Cache Cache
 }
 
+// Import sets the manifest file. It must not already exist.
+func (p *Project) Import(m *Manifest) error {
+	path := filepath.Join(p.Dir, manifestFile)
+	if _, err := os.Stat(path); err == nil {
+		return fmt.Errorf("manifest file already exist")
+	}
+	return write(path, m)
+}
+
+// LoadManifest reads and parses the project's manifest file.
 func (p *Project) LoadManifest() (*Manifest, error) {
 	var m Manifest
 	return &m, load(filepath.Join(p.Dir, manifestFile), &m)
 }
 
+// LoadLock reads and parses the project's lock file. If it doesn't exist, an empty
+// lock file is returned.
 func (p *Project) LoadLock() (*Lock, error) {
 	var l Lock
 	path := filepath.Join(p.Dir, lockFile)
@@ -64,6 +78,7 @@ func (p *Project) LoadLock() (*Lock, error) {
 	return &l, load(path, &l)
 }
 
+// UpdateLock reads the lock file, appies the passed function, then writes the result.
 func (p *Project) UpdateLock(f func(l *Lock) error) error {
 	l, err := p.LoadLock()
 	if err != nil {

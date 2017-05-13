@@ -108,13 +108,15 @@ func copySubpackages(dest, pkgRoot string, p ManifestPackage) ([]string, error) 
 		if visitedDirs[rel] {
 			return nil
 		}
-		seenImports = append(seenImports, filepath.ToSlash(rel))
+		if rel != "" {
+			seenImports = append(seenImports, filepath.ToSlash(rel))
+		}
 
 		visitedDirs[rel] = true
 
 		infos, err := ioutil.ReadDir(filepath.Join(pkgRoot, rel))
 		if err != nil {
-			return err
+			return fmt.Errorf("read dir: %v", err)
 		}
 		for _, info := range infos {
 			if info.IsDir() {
@@ -133,7 +135,7 @@ func copySubpackages(dest, pkgRoot string, p ManifestPackage) ([]string, error) 
 			if isGoFile(name) {
 				imports, err := listImports(from)
 				if err != nil {
-					return err
+					return fmt.Errorf("determining imports: %v", err)
 				}
 				for _, pkg := range imports {
 					if !strings.HasPrefix(pkg, p.Package) {
@@ -152,12 +154,15 @@ func copySubpackages(dest, pkgRoot string, p ManifestPackage) ([]string, error) 
 				}
 			}
 			if err := copyFile(to, from, info); err != nil {
-				return err
+				return fmt.Errorf("copying %s to %s: %v", from, to, err)
 			}
 		}
 		return nil
 	}
 
+	if err := visit(""); err != nil {
+		return nil, err
+	}
 	for _, pkg := range p.Subpackages {
 		if err := visit(filepath.FromSlash(pkg)); err != nil {
 			return nil, err
@@ -169,12 +174,15 @@ func copySubpackages(dest, pkgRoot string, p ManifestPackage) ([]string, error) 
 		dir := pkg
 		for {
 			dir = filepath.Dir(dir)
+			if dir == "." || dir == "" {
+				break
+			}
 			if visitedDirs[dir] {
 				break
 			}
 			visitedDirs[dir] = true
 
-			infos, err := ioutil.ReadDir(dir)
+			infos, err := ioutil.ReadDir(filepath.Join(pkgRoot, dir))
 			if err != nil {
 				return nil, err
 			}
@@ -185,7 +193,7 @@ func copySubpackages(dest, pkgRoot string, p ManifestPackage) ([]string, error) 
 					destPath := filepath.Join(dest, dir, name)
 					srcPath := filepath.Join(pkgRoot, dir, name)
 					if err := copyFile(destPath, srcPath, info); err != nil {
-						return nil, err
+						return nil, fmt.Errorf("copying license: %v", err)
 					}
 				}
 			}

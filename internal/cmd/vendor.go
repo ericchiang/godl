@@ -1,13 +1,14 @@
-package main
+package cmd
 
 import (
 	"fmt"
+	"log"
 	"sort"
 
 	"github.com/ericchiang/godl/internal/download"
 )
 
-func downloadAll(p *download.Project) error {
+func downloadAll(p *download.Project, logger *log.Logger) error {
 	m, err := p.LoadManifest()
 	if err != nil {
 		return err
@@ -22,6 +23,8 @@ func downloadAll(p *download.Project) error {
 		downloaded[pkg.Package] = pkg
 	}
 
+	didSomething := false
+
 	inManifest := make(map[string]struct{})
 	for _, pkg := range m.Import {
 		inManifest[pkg.Package] = struct{}{}
@@ -30,7 +33,9 @@ func downloadAll(p *download.Project) error {
 		if ok && packagesEq(lockPkg, pkg) {
 			continue
 		}
+		didSomething = true
 
+		logger.Printf("vendoring %s", pkg.Package)
 		lp, err := p.Download(pkg)
 		if err != nil {
 			return fmt.Errorf("download package %s: %v", pkg.Package, err)
@@ -48,6 +53,20 @@ func downloadAll(p *download.Project) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	for _, pkg := range l.Import {
+		if _, ok := inManifest[pkg.Package]; !ok {
+			didSomething = true
+			logger.Printf("removing %s", pkg.Package)
+			if err := p.Remove(pkg.Package); err != nil {
+				return err
+			}
+		}
+	}
+
+	if !didSomething {
+		logger.Printf("dependencies up to date")
 	}
 
 	return nil

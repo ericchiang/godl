@@ -5,12 +5,10 @@ go:
 
 install:
   - go get -u github.com/golang/lint/golint
-  - go get -u github.com/client9/misspell/cmd/misspell
 
 script:
   - make build
   - make test
-  - make spell-check
 
 notifications:
   email: false
