@@ -123,12 +123,6 @@ func (p *Project) Download(pkg ManifestPackage) (LockPackage, error) {
 			return fmt.Errorf("creating target directory: %v", err)
 		}
 
-		if len(pkg.Subpackages) == 0 {
-			if err := copyDir(dest, cachePath); err != nil {
-				return fmt.Errorf("copying files: %v", err)
-			}
-			return nil
-		}
 		subPkgs, err := copySubpackages(dest, cachePath, pkg)
 		if err != nil {
 			return fmt.Errorf("copying files: %v", err)
