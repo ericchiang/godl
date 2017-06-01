@@ -111,7 +111,6 @@ func walkImports(pkg string, pkgPath func(pkgName string) string, visit func(pkg
 		if info.IsDir() || !isGoFile(info.Name()) {
 			continue
 		}
-
 		imports, err := listImports(filepath.Join(dir, info.Name()))
 		if err != nil {
 			return fmt.Errorf("determining imports: %v", err)
@@ -140,9 +139,18 @@ func copySubpackages(dest, pkgRoot string, p ManifestPackage) ([]string, error) 
 	destPath := func(pkgName string) string { return absPath(dest, pkgName) }
 
 	visit := func(pkg string) (bool, error) {
+		if visitedPkgs[pkg] {
+			// Already visited this package.
+			return false, nil
+		}
+
 		if !strings.HasPrefix(pkg, p.Package) {
 			// Package is outside of this repo. Don't follow the imports.
 			return false, nil
+		}
+
+		if ok, err := isMain(pkgPath(pkg)); err != nil || ok {
+			return false, err
 		}
 
 		if err := copyDir(destPath(pkg), pkgPath(pkg)); err != nil {
@@ -182,6 +190,35 @@ func copySubpackages(dest, pkgRoot string, p ManifestPackage) ([]string, error) 
 	return subPackages, nil
 }
 
+func isMain(pkgPath string) (bool, error) {
+	infos, err := ioutil.ReadDir(pkgPath)
+	if err != nil {
+		return false, err
+	}
+
+	for _, info := range infos {
+		if info.IsDir() {
+			continue
+		}
+		if !isGoFile(info.Name()) {
+			continue
+		}
+
+		p := filepath.Join(pkgPath, info.Name())
+
+		fset := token.NewFileSet()
+		f, err := parser.ParseFile(fset, p, nil, parser.PackageClauseOnly)
+		if err != nil {
+			return false, fmt.Errorf("parse file %s: %v", p, err)
+		}
+
+		if f.Name.Name != "main" {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 // listImports parses a .go file and returns its imports.
 func listImports(filepath string) (imports []string, err error) {
 	fset := token.NewFileSet()
@@ -191,7 +228,9 @@ func listImports(filepath string) (imports []string, err error) {
 	}
 	for _, i := range f.Imports {
 		if i.Path != nil {
-			imports = append(imports, i.Path.Value)
+			imports = append(imports,
+				strings.TrimSuffix(
+					strings.TrimPrefix(i.Path.Value, `"`), `"`))
 		}
 	}
 	return
