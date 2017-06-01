@@ -114,7 +114,15 @@ func cmdImport(o *options, l *log.Logger) *cobra.Command {
 			tools are godeps, glide, and gvt.
 		`),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return nil
+			if len(args) != 1 {
+				return fmt.Errorf("import command requires argument")
+			}
+
+			p, err := o.project()
+			if err != nil {
+				return err
+			}
+			return importManifest(p, l, args[0])
 		},
 	}
 	return c
