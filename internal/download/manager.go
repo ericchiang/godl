@@ -104,6 +104,8 @@ func (p *Project) Download(pkg ManifestPackage) (LockPackage, error) {
 		remote = "https://" + pkg.Package
 	}
 
+	l.Subpackages = pkg.Subpackages
+
 	dest := p.packagePath(pkg.Package)
 	err = p.Cache.Dir(remote, func(cachePath string) error {
 		repo, err := vcs.NewRepo(remote, cachePath)
@@ -123,11 +125,9 @@ func (p *Project) Download(pkg ManifestPackage) (LockPackage, error) {
 			return fmt.Errorf("creating target directory: %v", err)
 		}
 
-		subPkgs, err := copySubpackages(dest, cachePath, pkg)
-		if err != nil {
+		if err := copySubpackages(dest, cachePath, pkg); err != nil {
 			return fmt.Errorf("copying files: %v", err)
 		}
-		l.Subpackages = subPkgs
 		return nil
 	})
 	if err != nil {

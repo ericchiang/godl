@@ -9,7 +9,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"sort"
 	"strings"
 )
 
@@ -127,7 +126,7 @@ func walkImports(pkg string, pkgPath func(pkgName string) string, visit func(pkg
 
 // copySubpackages recursively follows subpackage imports as long as
 // the import is within the package.
-func copySubpackages(dest, pkgRoot string, p ManifestPackage) ([]string, error) {
+func copySubpackages(dest, pkgRoot string, p ManifestPackage) error {
 	visitedPkgs := make(map[string]bool)
 
 	absPath := func(root, pkgName string) string {
@@ -170,24 +169,10 @@ func copySubpackages(dest, pkgRoot string, p ManifestPackage) ([]string, error) 
 
 	for _, pkg := range toVisit {
 		if err := walkImports(pkg, pkgPath, visit); err != nil {
-			return nil, err
+			return err
 		}
 	}
-
-	var subPackages []string
-
-	for pkg := range visitedPkgs {
-		relImport := strings.TrimPrefix(pkg, p.Package)
-		relImport = strings.TrimPrefix(relImport, "/")
-
-		if relImport == "" {
-			// Root package. Continue
-			continue
-		}
-		subPackages = append(subPackages, relImport)
-	}
-	sort.Strings(subPackages)
-	return subPackages, nil
+	return nil
 }
 
 func isMain(pkgPath string) (bool, error) {
